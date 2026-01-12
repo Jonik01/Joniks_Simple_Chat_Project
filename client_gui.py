@@ -36,11 +36,12 @@ class ChatClientGUI:
         tk.Label(self.login_frame, text="Username:").pack(anchor='w')
         self.name_entry=tk.Entry(self.login_frame)
         self.name_entry.pack(fill='x', pady=5)
-        #Use 'Enter' to continue
-        self.ipentry.bind('<Return>', self.connect_to_server)
         #"connect" button
         btn = tk.Button(self.login_frame, text="Connect", command=self.connect_to_server, bg="lightblue")
         btn.pack(fill='x', pady=20)
+        #Use 'Enter' to continue
+        self.ipentry.bind('<Return>', self.connect_to_server)
+        self.name_entry.bind('<Return>', self.connect_to_server)
 
     #connects to server and builds chat screen
     def connect_to_server(self,event=None):
