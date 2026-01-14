@@ -25,7 +25,6 @@ class ChatServer:
         current_username = None
         try:
             #Registration phase
-            connection.send("Welcome to the Chat Server! Please enter your username: ".encode('utf-8'))
             while True:
                 current_username = connection.recv(2048).decode('utf-8').strip()
                 if current_username in self.clients:
@@ -70,17 +69,26 @@ class ChatServer:
             # Bind and open the socket for listening to 5 connections
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(5) 
+            self.server_socket.settimeout(1.0) #refreshing for inturrupt detection
             print(f"Server started on {self.host}:{self.port}")
             print("Waiting for connections...")
             
             while True:
-                # 1. Accept new connection
-                client_socket, client_address = self.server_socket.accept()
-                # 2. Spawn a new thread for this client
-                thread = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
-                thread.start()
+                try:
+                    # 1. Accept new connection
+                    client_socket, client_address = self.server_socket.accept()
+                    # 2. Spawn a new thread for this client
+                    thread = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
+                    thread.daemon=True
+                    thread.start()
+                except socket.timeout:
+                    continue
+        except KeyboardInterrupt:
+            print("\nInturrupt Detected!\n Server Stopping...\n")       
         except Exception as e:
             print(f"Server failed to start: {e}")
+        finally:
+            self.server_socket.close()
 
 
 if __name__ == "__main__":
