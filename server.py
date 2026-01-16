@@ -18,6 +18,14 @@ class ChatServer:
                client.send(message.encode('utf-8'))
            except:
                pass
+    
+    def broadcast_message(self, message, sender_name="Server"):
+        formatted_msg = f"MSG:{sender_name}:{message}"
+        for client in self.clients.values():
+            try:
+                client.send(formatted_msg.encode('utf-8'))
+            except:
+                pass
 
     def handle_client(self, connection, client_address):
     #function to handle client connections
@@ -59,6 +67,7 @@ class ChatServer:
             if current_username in self.clients:
                 del self.clients[current_username]
                 self.broadcast_user_list()
+                self.broadcast_message(f"{current_username} has left the chat.")
             print("Closing connection from", client_address)
             connection.close()
 

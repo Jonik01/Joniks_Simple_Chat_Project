@@ -131,11 +131,18 @@ class ChatClientGUI:
                     parts = message.split(':', 2)
                     sender = parts[1]
                     content = parts[2]
+
+                    #If user disconnects while in chat
+                    if sender=="Server":
+                        expected_message=f"{self.current_chat_partner} has left the chat."
+                        if self.current_chat_partner and content == expected_message:
+                            self.root.after(0,self.on_partner_disconnect)
+                        continue
                     
                     #Save to chat log
                     if sender not in self.chat_log:
                         self.chat_log[sender]=[]
-                    self.chat_log[sender].append(f"{sender}:{content}")
+                    self.chat_log[sender].append(f"{sender}: {content}")
 
                     # Only show if we are currently chatting with this person
                     if hasattr(self, 'current_chat_partner') and self.current_chat_partner == sender:
@@ -187,6 +194,7 @@ class ChatClientGUI:
         #Chat history
         self.chat_history = tk.Text(self.chat_frame, height=20, state='disabled', bg="#f0f0f0")
         self.chat_history.pack(fill='both', expand=True, pady=5)
+        self.chat_history.tag_config('alert',foreground='red')
         #Input Area
         input_frame = tk.Frame(self.chat_frame)
         input_frame.pack(fill='x', pady=5)
@@ -198,8 +206,9 @@ class ChatClientGUI:
         send_btn.pack(side='right')
     
     #To return from chat back to users list
-    def go_back_to_list(self):
+    def go_back_to_list(self, events=None):
         #End chat and return to list
+        self.root.unbind("<Key>")
         self.current_chat_partner = None
         self.chat_frame.destroy()
         self.build_list_screen()
@@ -226,11 +235,22 @@ class ChatClientGUI:
             self.client_socket.send(full_msg.encode('utf-8'))
     
     #Helper function for scrolling history
-    def append_message(self, text):
+    def append_message(self, text, tags=None):
         self.chat_history.config(state='normal') # Unlock
-        self.chat_history.insert(tk.END, text + "\n")
+        self.chat_history.insert(tk.END, text + "\n",tags)
         self.chat_history.config(state='disabled') # Lock again
         self.chat_history.see(tk.END) # Auto-scroll to bottom
+    
+    #Display msg and go back to list on partner disconnect
+    def on_partner_disconnect(self):
+        msg = f"User '{self.current_chat_partner}' has left the chat."
+        self.append_message(msg, "alert")
+        self.append_message("Press any key to return to list...", "alert")
+        #Freeze inputs
+        self.msg_entry.config(state='disabled')
+        #Bind inputs to go back to list
+        self.chat_frame.focus_set()
+        self.root.bind("<Key>", self.go_back_to_list)
     
     #Handles server shutting down mid use
     def handle_disconnect(self):
