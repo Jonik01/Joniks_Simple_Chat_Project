@@ -14,6 +14,7 @@ class ChatClientGUI:
         self.username=""
         self.current_chat_partner=None
         self.known_users = []
+        self.chat_log={}
         self.last_ip = self.default_ip 
         self.last_username = ""
 
@@ -124,11 +125,18 @@ class ChatClientGUI:
                     #Update list if list is active
                     if hasattr(self, 'list_frame') and self.list_frame.winfo_exists():
                         self.root.after(0,self.update_user_list,active_users)
+                
                 elif message.startswith("MSG:"):
                     # Format: MSG:SenderName:Content
                     parts = message.split(':', 2)
                     sender = parts[1]
                     content = parts[2]
+                    
+                    #Save to chat log
+                    if sender not in self.chat_log:
+                        self.chat_log[sender]=[]
+                    self.chat_log[sender].append(f"{sender}:{content}")
+
                     # Only show if we are currently chatting with this person
                     if hasattr(self, 'current_chat_partner') and self.current_chat_partner == sender:
                          self.append_message(f"{sender}: {content}")
@@ -161,6 +169,10 @@ class ChatClientGUI:
         #Update to chat frame
         self.list_frame.destroy()
         self.build_chat_screen()
+        #Load history
+        if target_user in self.chat_log:
+            for msg in self.chat_log[target_user]:
+                self.append_message(msg)
 
     #Constructing chat UI    
     def build_chat_screen(self):
@@ -200,6 +212,13 @@ class ChatClientGUI:
             return
         #Clear input
         self.msg_entry.delete(0, tk.END)
+        
+        #Save own message to log
+        msg_to_save=f"Me: {text}"
+        if self.current_chat_partner not in self.chat_log:
+            self.chat_log[self.current_chat_partner]=[]
+        self.chat_log[self.current_chat_partner].append(msg_to_save)
+        
         #Display my own message in the history
         self.append_message(f"Me: {text}")
         if self.client_socket:
