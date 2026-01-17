@@ -38,11 +38,17 @@ class ChatServer:
         try:
             #Registration phase
             while True:
-                current_username = connection.recv(2048).decode('utf-8').strip()
+                data=connection.recv(2048)
+                if not data:
+                    print("Client disconnected during registration.")
+                    return
+                current_username = data.decode('utf-8').strip()
                 if current_username in self.clients:
                     connection.send("Username already taken. Please choose another.".encode('utf-8'))
+                elif current_username.lower() == "server":
+                    connection.send("Username 'Server' is reserved and taken.".encode('utf-8'))
                 else:
-                    break
+                    break #If user is allowed to register break loop
             self.clients[current_username] = connection
             print(f"User {current_username} registered.")
             self.broadcast_user_list()
