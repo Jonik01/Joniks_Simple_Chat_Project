@@ -13,7 +13,19 @@ class ChatClientGUI:
     def __init__(self):
         self.root=tk.Tk()
         self.root.title("Chat Client")
-        self.root.geometry("400x500")
+        self.root.geometry("400x600")
+        self.colors={
+            'bg': "#e9e9e9",        # Light Grey (Main Background)
+            'header': '#2f3640',    # Dark Slate (Top bars)
+            'text_light': 'white',  # Text on dark backgrounds
+            'accent': '#00a8ff',    # Bright Blue (Buttons)
+            'alert': '#e84118',     # Red (Notifications/Disconnects)
+            'me_msg': 'blue',       # My message color
+            'partner_msg': "#029109",  # Partner message color
+            'partner_header': "#03D10D" #Partner Header color
+        }
+        self.root.configure(bg=self.colors['bg'])
+
         self.client_socket=None
         self.username=""
         self.current_chat_partner=None
@@ -21,6 +33,7 @@ class ChatClientGUI:
         self.chat_log={}
         self.last_ip = self.default_ip 
         self.last_username = ""
+        self.unread_messages={}
 
         self.build_login_screen()
         self.root.mainloop()
@@ -29,24 +42,28 @@ class ChatClientGUI:
     def build_login_screen(self):
 
         #setup login frame
-        self.login_frame=tk.Frame(self.root)
+        self.login_frame=tk.Frame(self.root,bg=self.colors['bg'])
         self.login_frame.pack(fill='both', expand=True, padx=20, pady=20)
-        tk.Label(self.login_frame, text="Welcome to Chat", font=("Arial", 20)).pack(pady=20)
+        
+        #Header label
+        tk.Label(self.login_frame, text="Welcome to Chat", bg=self.colors['bg'], font=("Segoe UI", 20, "bold")).pack(pady=20)
        
         #server IP entry
-        tk.Label(self.login_frame, text="Server IP:").pack(anchor='w')
-        self.ipentry=tk.Entry(self.login_frame)
+        tk.Label(self.login_frame, text="Server IP:", bg=self.colors['bg']).pack(anchor='w')
+        self.ipentry = tk.Entry(self.login_frame, font=("Segoe UI", 12), relief="flat")
         self.ipentry.insert(0, self.last_ip)
         self.ipentry.pack(fill='x', pady=5)
        
         #username entry
-        tk.Label(self.login_frame, text="Username:").pack(anchor='w')
-        self.name_entry=tk.Entry(self.login_frame)
+        tk.Label(self.login_frame, text="Username:", bg=self.colors['bg']).pack(anchor='w')
+        self.name_entry = tk.Entry(self.login_frame, font=("Segoe UI", 12), relief="flat")
         self.name_entry.insert(0, self.last_username)
         self.name_entry.pack(fill='x', pady=5)
         
         #"connect" button
-        btn = tk.Button(self.login_frame, text="Connect", command=self.connect_to_server, bg="lightblue")
+        btn = tk.Button(self.login_frame, text="Connect", command=self.connect_to_server, 
+                        bg=self.colors['accent'], fg='white', 
+                        font=("Segoe UI", 12, "bold"), relief="flat")
         btn.pack(fill='x', pady=20)
         
         #Use 'Enter' to continue
@@ -89,23 +106,57 @@ class ChatClientGUI:
         except Exception as e:
             messagebox.showerror("Connection Error", f"Could not connect: {e}")
 
-    #chat "contacts" screen
+    #Creates dark bar with (Name | IP)
+    def build_status_bar(self, parent_frame):
+        status_frame = tk.Frame(parent_frame, bg=self.colors['header'], height=30)
+        status_frame.pack(side='bottom', fill='x')
+         #Text (Name | IP)
+        status_text = f" Logged in as: {self.username}  |  Server: {self.last_ip}"
+        lbl = tk.Label(status_frame, text=status_text, 
+                       bg=self.colors['header'], fg=self.colors['text_light'], 
+                       font=("Helvetica", 9))
+        lbl.pack(side='left', padx=10, pady=5)
+        #Logout Button
+        logout_btn = tk.Button(status_frame, text="Logout", 
+                               bg=self.colors['header'], fg=self.colors['alert'], 
+                               font=("Segoe UI", 9, "bold"), relief="flat",
+                               activebackground=self.colors['header'],
+                               activeforeground="white",
+                               command=self.logout)
+        logout_btn.pack(side='right', padx=10, pady=5)
+
+    #Chat users list
     def build_list_screen(self):
-        self.root.geometry("400x500") ##Window Size Control
-        self.root.title(f"Logged in as: {self.username}")
-        self.list_frame=tk.Frame(self.root)
-        self.list_frame.pack(fill='both', expand=True, padx=20, pady=20)
-        #title header
-        tk.Label(self.list_frame, text="Active Users", font=("Arial", 16, "bold"), bg="#ddd").pack(fill='x', pady=5)
-        
-        self.users_container = tk.Frame(self.list_frame)
-        self.users_container.pack(fill='both', expand=True, padx=10, pady=10)
+        #Clear the window
+        for widget in self.root.winfo_children():
+            widget.destroy()
+            
+        #Main Container
+        self.list_frame = tk.Frame(self.root, bg=self.colors['bg'])
+        self.list_frame.pack(fill='both', expand=True)
+
+        #Header
+        header = tk.Frame(self.list_frame, bg=self.colors['header'], height=60)
+        header.pack(fill='x')
+        tk.Label(header, text="Active Users", bg=self.colors['header'], 
+                 fg=self.colors['text_light'], font=("Segoe UI", 18, "bold")).pack(pady=15)
+
+        #Container for User Buttons
+        self.users_container = tk.Frame(self.list_frame, bg=self.colors['bg'])
+        self.users_container.pack(fill='both', expand=True, padx=20, pady=20)
+
+        #Populate List (or show waiting text)
         if self.known_users:
             self.update_user_list(self.known_users)
         else:
-            self.status_label = tk.Label(self.users_container, text="Waiting for user list...", fg="gray")
+            self.status_label = tk.Label(self.users_container, text="Waiting for users...", 
+                                         bg=self.colors['bg'], fg="gray")
             self.status_label.pack()
-
+            
+        #Status Bar
+        self.build_status_bar(self.list_frame)
+    
+    
     #Runs in a background thread. Listens for server signals.
     def receive_messages(self):
         while True:
@@ -130,8 +181,8 @@ class ChatClientGUI:
                     if hasattr(self, 'list_frame') and self.list_frame.winfo_exists():
                         self.root.after(0,self.update_user_list,active_users)
                 
+                #Handle chat messages. (Format: MSG:SenderName:Content)
                 elif message.startswith("MSG:"):
-                    # Format: MSG:SenderName:Content
                     parts = message.split(':', 2)
                     sender = parts[1]
                     content = parts[2]
@@ -150,9 +201,15 @@ class ChatClientGUI:
 
                     # Only show if we are currently chatting with this person
                     if hasattr(self, 'current_chat_partner') and self.current_chat_partner == sender:
-                         self.append_message(f"{sender}: {content}")
+                         #Show if chatting
+                         self.append_message(f"{sender}: {content}", "partner_msg")
                     else:
-                        print(f"Notification: Message from {sender}")
+                        #Add to unread if not chatting
+                        self.unread_messages[sender] = self.unread_messages.get(sender, 0) + 1
+                        
+                        # Refresh the list screen so notification appears
+                        if hasattr(self, 'list_frame') and self.list_frame.winfo_exists():
+                            self.root.after(0, self.update_user_list, self.known_users)
             
             except Exception as e:
                 print(f"Connection lost: {e}")
@@ -162,52 +219,98 @@ class ChatClientGUI:
     
     #Update the displayed list of active users
     def update_user_list(self, active_users):
+        #Clear old widgets
         for widget in self.users_container.winfo_children():
             widget.destroy()
+        
         for user in active_users:
             user = user.strip()
             # Skip self
             if user!=self.username and user!="":
-                btn = tk.Button(self.users_container, text=f"Chat with {user}", bg="white",  font=("Arial", 12),command=lambda u=user: self.start_chat(u))
-                btn.pack(fill='x', pady=2)
-            #if no others online
-            if len(self.users_container.winfo_children()) == 0:
-                tk.Label(self.users_container, text="No other users online", fg="gray").pack()
+                #TODO implement unread
+                unread_count = self.unread_messages.get(user, 0)
+                
+                ## COMPLEX BUTTON (User | unread messages(amount)) ##
+                
+                #Create Row (button bg)
+                row_frame = tk.Frame(self.users_container, bg="white", cursor="hand2")
+                row_frame.pack(fill='x', pady=2)
+                #Name Label (Black Text)
+                name_lbl = tk.Label(row_frame, text=f"  {user}", bg="white", fg="black", 
+                                    font=("Segoe UI", 12, "bold"), anchor="w")
+                name_lbl.pack(side='left', fill='x', expand=True, ipady=10)
+                #Unread Label (Red Text) - Only if unread messages exist
+                if unread_count > 0:
+                    count_text = f"({unread_count} New!)  "
+                    count_lbl = tk.Label(row_frame, text=count_text, bg="white", 
+                                         fg=self.colors['alert'], # Red
+                                         font=("Segoe UI", 12))
+                    count_lbl.pack(side='right')
+                    
+                    # Make the red text clickable too
+                    count_lbl.bind("<Button-1>", lambda e, u=user: self.start_chat(u))
+
+                #Make clickable
+                row_frame.bind("<Button-1>", lambda e, u=user: self.start_chat(u))
+                name_lbl.bind("<Button-1>", lambda e, u=user: self.start_chat(u))
     
     #Start chat with specific user
     def start_chat(self, target_user):
         self.current_chat_partner = target_user
-        #Update to chat frame
+        #Mark messages as read
+        if target_user in self.unread_messages:
+            self.unread_messages[target_user] = 0
+        # Switch to chat screen
         self.list_frame.destroy()
         self.build_chat_screen()
-        #Load history
+        # Load History
         if target_user in self.chat_log:
             for msg in self.chat_log[target_user]:
-                self.append_message(msg)
+                # Who sent the message (for coloring)
+                tag = "me_msg" if msg.startswith("Me:") else "partner_msg"
+                self.append_message(msg, tag)
 
     #Constructing chat UI    
     def build_chat_screen(self):
-        #Chat view
-        self.root.title(f"Chatting with {self.current_chat_partner}")
-        #Main Frame
-        self.chat_frame = tk.Frame(self.root)
-        self.chat_frame.pack(fill='both', expand=True, padx=10, pady=10)
-        #Back button
-        back_btn = tk.Button(self.chat_frame, text="<- Back", command=self.go_back_to_list)
-        back_btn.pack(anchor='w', pady=5)
-        #Chat history
-        self.chat_history = tk.Text(self.chat_frame, height=20, state='disabled', bg="#f0f0f0")
-        self.chat_history.pack(fill='both', expand=True, pady=5)
-        self.chat_history.tag_config('alert',foreground='red')
+        #Frame Setup
+        self.chat_frame = tk.Frame(self.root, bg=self.colors['bg'])
+        self.chat_frame.pack(fill='both', expand=True)
+        
+        #Header
+        header = tk.Frame(self.chat_frame, bg=self.colors['header'], height=50)
+        header.pack(fill='x')
+        
+        #Back Button
+        back_btn = tk.Button(header, text="◀ Back", command=self.go_back_to_list,
+                             bg=self.colors['header'], fg='white', relief='flat', font=("Arial", 12, "bold"))
+        back_btn.pack(side='left', padx=10)
+        
+        #Title
+        tk.Label(header, text=f"{self.current_chat_partner}", 
+                 bg=self.colors['header'], fg=self.colors['partner_header'], font=("Segoe UI", 15, "bold")).pack(side='left', padx=20, pady=5)
+
+        #Chat History (White Box)
+        self.chat_history = tk.Text(self.chat_frame, height=20, state='disabled', 
+                                    bg="white", font=("Segoe UI", 10), relief="flat", padx=10, pady=10)
+        self.chat_history.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        #[COLORS] Register tags for Blue/Green text
+        self.chat_history.tag_config('alert', foreground=self.colors['alert'])
+        self.chat_history.tag_config('me_msg', foreground=self.colors['me_msg'])
+        self.chat_history.tag_config('partner_msg', foreground=self.colors['partner_msg'])
+        
         #Input Area
-        input_frame = tk.Frame(self.chat_frame)
-        input_frame.pack(fill='x', pady=5)
-        self.msg_entry = tk.Entry(input_frame)
-        self.msg_entry.pack(side='left', fill='x', expand=True, padx=5)
-        #Allow 'Enter' key for sending message
+        input_frame = tk.Frame(self.chat_frame, bg=self.colors['bg'])
+        input_frame.pack(fill='x', padx=10, pady=5)
+        self.msg_entry = tk.Entry(input_frame, font=("Segoe UI", 12), relief="flat", bg="white")
+        self.msg_entry.pack(side='left', fill='x', expand=True, padx=5, ipady=5)
         self.msg_entry.bind("<Return>", lambda event: self.send_message()) 
-        send_btn = tk.Button(input_frame, text="Send", command=self.send_message, bg="lightgreen")
-        send_btn.pack(side='right')
+        send_btn = tk.Button(input_frame, text="SEND", command=self.send_message, 
+                             bg=self.colors['accent'], fg='white', relief='flat', font=("Segoe UI", 10, "bold"))
+        send_btn.pack(side='right', ipadx=10)
+
+        # Status Bar
+        self.build_status_bar(self.chat_frame)
     
     #To return from chat back to users list
     def go_back_to_list(self, events=None):
@@ -255,9 +358,12 @@ class ChatClientGUI:
         #Bind inputs to go back to list
         self.chat_frame.focus_set()
         self.root.bind("<Key>", self.go_back_to_list)
-    
-    #Handles server shutting down mid use
-    def handle_disconnect(self):
+
+    def logout(self):
+        self.handle_disconnect(show_alert=False)
+
+    #Handles user disconnects
+    def handle_disconnect(self,show_alert=True):
         #Dont run again if connection closed
         if not self.client_socket:
             return
@@ -268,14 +374,19 @@ class ChatClientGUI:
             pass
         self.client_socket=None
         
-        messagebox.showerror("Disconnected","Lost connection to server. Returning to login screen") #Notify user about disconnect
-        #Destroy frames
+        if show_alert==True:
+            messagebox.showerror("Disconnected","Lost connection to server. Returning to login screen") #Notify user about disconnect
+        
+        #Destroy widgets
+        self.root.unbind("<Key>")
         for widget in self.root.winfo_children():
             widget.destroy()
         #Reset info
-        self.username=""
-        self.current_chat_partner=None
-        self.known_users=[]
+        self.username = ""
+        self.current_chat_partner = None
+        self.known_users = []
+        self.chat_log = {}
+        self.unread_messages = {}
         #Reframe to login
         self.build_login_screen()
     
