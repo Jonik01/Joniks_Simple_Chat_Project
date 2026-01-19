@@ -47,6 +47,8 @@ class ChatServer:
                     connection.send("Username already taken. Please choose another.".encode('utf-8'))
                 elif current_username.lower() == "server":
                     connection.send("Username 'Server' is reserved and taken.".encode('utf-8'))
+                elif ':' in current_username:
+                    connection.send("Username containing ':' is taken and cannot be used".encode('utf-8'))
                 else:
                     break #If user is allowed to register break loop
             self.clients[current_username] = connection
