@@ -369,6 +369,7 @@ class ChatClientGUI:
             return
         #Cleanup sockets
         try:
+            self.client_socket.shutdown(socket.SHUT_RDWR)
             self.client_socket.close()
         except:
             pass
