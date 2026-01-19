@@ -6,6 +6,7 @@ import threading
 # GUI class for the chat client
 class ChatClientGUI:
     default_ip = 'localhost' ##Default value, Change for convenince
+    default_port = 10000
     def __init__(self):
         self.root=tk.Tk()
         self.root.title("Chat Client")
@@ -76,7 +77,7 @@ class ChatClientGUI:
         
         try: #establish connection
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.client_socket.connect((ip, 10000))
+            self.client_socket.connect((ip, self.default_port))
             # Send username for registration
             self.client_socket.send(username.encode('utf-8'))
             response = self.client_socket.recv(1024).decode('utf-8')
