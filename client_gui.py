@@ -3,10 +3,6 @@ from tkinter import messagebox
 import socket
 import threading
 
-#TODO add new message notifications
-#TODO add indicator to username at all times
-#TODO modernize UI
-
 # GUI class for the chat client
 class ChatClientGUI:
     default_ip = 'localhost' ##Default value, Change for convenince
@@ -227,7 +223,6 @@ class ChatClientGUI:
             user = user.strip()
             # Skip self
             if user!=self.username and user!="":
-                #TODO implement unread
                 unread_count = self.unread_messages.get(user, 0)
                 
                 ## COMPLEX BUTTON (User | unread messages(amount)) ##
