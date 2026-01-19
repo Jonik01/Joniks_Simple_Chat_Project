@@ -8,28 +8,43 @@ class ChatServer:
         self.port = port
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.clients = {}
-    
-    def broadcast_user_list(self):
-    #function to broadcast list of active participants
-        user_list = ', '.join(self.clients.keys())
-        message = f"LIST: {user_list}"
-        for client in self.clients.values():
-           try:
-               client.setblocking(False)
-               client.send(message.encode('utf-8'))
-               client.setblocking(True)
-           except:
-               pass
-    
-    def broadcast_message(self, message, sender_name="Server"):
-        formatted_msg = f"MSG:{sender_name}:{message}"
-        for client in self.clients.values():
+
+    #Main accept loop
+    def start(self):
+        try:
+            # Bind and open the socket for listening to 5 connections
+            self.server_socket.bind((self.host, self.port))
+            self.server_socket.listen(5) 
+            self.server_socket.settimeout(1.0) #refreshing for inturrupt detection
+            #Get server IP for user
             try:
-                client.setblocking(False)
-                client.send(formatted_msg.encode('utf-8'))
-                client.setblocking(True)
+                test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                test_socket.connect(("8.8.8.8", 80))
+                actual_ip = test_socket.getsockname()[0]
+                test_socket.close()
             except:
-                pass
+                actual_ip = "127.0.0.1" # Fallback if no internet
+            
+            print(f"Server started!")
+            print(f"Link for clients: {actual_ip}")
+            print("Waiting for connections...")
+            
+            while True:
+                try:
+                    # 1. Accept new connection
+                    client_socket, client_address = self.server_socket.accept()
+                    # 2. Spawn a new thread for this client
+                    thread = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
+                    thread.daemon=True
+                    thread.start()
+                except socket.timeout:
+                    continue
+        except KeyboardInterrupt:
+            print("\nInturrupt Detected!\n Server Stopping...\n")       
+        except Exception as e:
+            print(f"Server failed to start: {e}")
+        finally:
+            self.server_socket.close()
 
     def handle_client(self, connection, client_address):
     #function to handle client connections
@@ -83,44 +98,27 @@ class ChatServer:
             print("Closing connection from", client_address)
             connection.close()
 
-
-    #Main accept loop
-    def start(self):
-        try:
-            # Bind and open the socket for listening to 5 connections
-            self.server_socket.bind((self.host, self.port))
-            self.server_socket.listen(5) 
-            self.server_socket.settimeout(1.0) #refreshing for inturrupt detection
-            #Get server IP for user
+    def broadcast_user_list(self):
+    #function to broadcast list of active participants
+        user_list = ', '.join(self.clients.keys())
+        message = f"LIST: {user_list}"
+        for client in self.clients.values():
+           try:
+               client.setblocking(False)
+               client.send(message.encode('utf-8'))
+               client.setblocking(True)
+           except:
+               pass
+    
+    def broadcast_message(self, message, sender_name="Server"):
+        formatted_msg = f"MSG:{sender_name}:{message}"
+        for client in self.clients.values():
             try:
-                test_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                test_socket.connect(("8.8.8.8", 80))
-                actual_ip = test_socket.getsockname()[0]
-                test_socket.close()
+                client.setblocking(False)
+                client.send(formatted_msg.encode('utf-8'))
+                client.setblocking(True)
             except:
-                actual_ip = "127.0.0.1" # Fallback if no internet
-            
-            print(f"Server started!")
-            print(f"Link for clients: {actual_ip}")
-            print("Waiting for connections...")
-            
-            while True:
-                try:
-                    # 1. Accept new connection
-                    client_socket, client_address = self.server_socket.accept()
-                    # 2. Spawn a new thread for this client
-                    thread = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
-                    thread.daemon=True
-                    thread.start()
-                except socket.timeout:
-                    continue
-        except KeyboardInterrupt:
-            print("\nInturrupt Detected!\n Server Stopping...\n")       
-        except Exception as e:
-            print(f"Server failed to start: {e}")
-        finally:
-            self.server_socket.close()
-
+                pass
 
 if __name__ == "__main__":
     server = ChatServer()
